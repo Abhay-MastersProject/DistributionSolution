@@ -1,0 +1,42 @@
+from pulp import LpProblem, LpVariable, lpSum, LpMinimize
+
+transportation_costs = {
+    'Alpha': {'Italy': 200, 'France': 300, 'Germany': 400, 'Spain': 400, 'UK': 800},
+    'Beta': {'Italy': 400, 'France': 300, 'Germany': 200, 'Spain': 500, 'UK': 900},
+    'Gamma': {'Italy': 600, 'France': 500, 'Germany': 600, 'Spain': 500, 'UK': 200},
+}
+
+country_demands = {'Italy': 249534, 'France': 213465, 'Germany': 205604, 'Spain': 258171, 'UK': 170455}
+
+activation_costs = {'Alpha': 2562500000, 'Beta': 2172800000, 'Gamma': 2188000000}
+
+plant_capacities = {'Alpha': 742857, 'Beta': 628571, 'Gamma': 600000}
+
+prob = LpProblem("Transportation_Problem", LpMinimize)
+
+x = LpVariable.dicts("shipment", ((i, j) for i in transportation_costs.keys() for j in country_demands.keys()),
+                     lowBound=0, cat='Integer')
+activation_status = LpVariable.dicts("activation_status", activation_costs.keys(), cat='Binary')
+
+
+prob += lpSum(transportation_costs[i][j] * x[(i, j)] for i in transportation_costs.keys()
+              for j in country_demands.keys()) + lpSum(activation_costs[i] * activation_status[i]
+                                                       for i in activation_costs.keys())
+
+
+for i in transportation_costs.keys():
+    prob += lpSum(x[(i, j)] for j in country_demands.keys()) <= plant_capacities[i] * activation_status[i]
+
+for j in country_demands.keys():
+    prob += lpSum(x[(i, j)] for i in transportation_costs.keys()) >= country_demands[j]
+
+prob.solve()
+print("Objective Function Value (Total Cost):", round(prob.objective.value(), 2))
+print("\nOptimal Shipment Quantities:")
+for var in prob.variables():
+    if var.varValue > 0:
+        print(f"{var.name}: {round(var.varValue, 2)}")
+
+print("\nActivation Status:")
+for i in activation_costs.keys():
+    print(f"{i}: {int(activation_status[i].varValue)}")
